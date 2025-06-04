@@ -35,8 +35,12 @@ bool createDirectory(const std::string& path) {
 // 日志管理类实现
 ServerLogger::ServerLogger(const std::string& filename, bool consoleOutput) 
     : logFile(filename), enableConsoleOutput(consoleOutput) {
-    // 确保log目录存在
-    createDirectory("log");
+    // 从文件路径中提取目录并创建
+    size_t lastSlash = filename.find_last_of("/\\");
+    if (lastSlash != std::string::npos) {
+        std::string logDir = filename.substr(0, lastSlash);
+        createDirectory(logDir);
+    }
     logServerEvent("服务器日志系统初始化");
 }
 
@@ -125,16 +129,20 @@ std::string ProtocolMessage::serialize() const {
 // 服务器构造函数 - 初始化服务器状态并加载历史数据
 TCPUserSystemServer::TCPUserSystemServer(int serverPort, const std::string& filename) 
     : serverSocket(INVALID_SOCKET), running(false), port(serverPort), dataFile(filename) {
-    // 确保log和users目录存在
+    // 确保当前目录下的log和users目录存在
     createDirectory("log");
     createDirectory("users");
     
-    // 初始化日志系统，日志文件存放在log目录
+    // 设置用户数据文件路径
+    dataFile = "users/" + filename;
+    
+    // 初始化日志系统，日志文件存放在当前目录的log目录
     logger = new ServerLogger("log/server.log", true);
     
     std::stringstream ss;
     ss << serverPort;
     logger->logServerEvent("TCP用户系统服务器初始化，端口: " + ss.str());
+    logger->logInfo("数据文件路径: " + dataFile);
     
     loadFromFile();  // 启动时加载用户数据
     

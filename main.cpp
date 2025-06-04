@@ -91,8 +91,8 @@ int main() {
         }
     }
 
-    // 创建服务器实例 - 用户数据存放在users目录
-    TCPUserSystemServer server(port, "users/users.txt");
+    // 创建服务器实例 - 只传递文件名，路径处理由服务器内部完成
+    TCPUserSystemServer server(port, "users.txt");
     g_server = &server;  // 设置全局指针用于信号处理
     
     // 启动服务器 - 进入监听状态

@@ -28,6 +28,15 @@
 #include <fcntl.h>
 #endif
 
+// 跨平台清屏函数
+void clearScreen() {
+#ifdef _WIN32
+    system("cls");
+#else
+    system("clear");
+#endif
+}
+
 // TCP客户端类 - 管理与服务器的连接和通信
 class TCPUserClient {
 private:
@@ -227,6 +236,7 @@ public:
 
     // 显示登录前菜单
     void printLoginMenu() {
+        clearScreen();
         std::cout << "\n=== TCP 用户系统 ===" << std::endl;
         std::cout << "1. 用户登录" << std::endl;
         std::cout << "2. 用户注册" << std::endl;
@@ -236,6 +246,7 @@ public:
 
     // 显示登录后用户操作菜单
     void printUserMenu() {
+        clearScreen();
         std::cout << "\n=== 用户操作界面 ===" << std::endl;
         std::cout << "1. 查看用户字符串" << std::endl;
         std::cout << "2. 修改用户字符串" << std::endl;
@@ -259,6 +270,8 @@ public:
                 std::cin.clear();
                 std::cin.ignore(1000, '\n');
                 std::cout << "输入无效，请输入数字!" << std::endl;
+                std::cout << "按回车键继续...";
+                std::cin.get();
                 continue;
             }
             std::cin.ignore();
@@ -275,6 +288,8 @@ public:
                         
                         if (response.find("SUCCESS") != std::string::npos) {
                             std::cout << "登录成功! 欢迎 " << userId << std::endl;
+                            std::cout << "按回车键继续...";
+                            std::cin.get();
                             return true;  // 进入用户操作界面
                         }
                         else if (response.find("CONFLICT") != std::string::npos) {
@@ -290,11 +305,15 @@ public:
                                 
                                 if (forceResponse.find("SUCCESS") != std::string::npos) {
                                     std::cout << "强制登录成功! 欢迎 " << userId << std::endl;
+                                    std::cout << "按回车键继续...";
+                                    std::cin.get();
                                     return true;  // 进入用户操作界面
                                 }
                             }
                         }
                     }
+                    std::cout << "按回车键继续...";
+                    std::cin.get();
                     break;
 
                 case 2: // 用户注册
@@ -309,6 +328,8 @@ public:
                             std::cout << "注册成功! 请使用新账户登录。" << std::endl;
                         }
                     }
+                    std::cout << "按回车键继续...";
+                    std::cin.get();
                     break;
 
                 case 0: // 退出系统
@@ -317,6 +338,8 @@ public:
 
                 default:
                     std::cout << "无效选择!" << std::endl;
+                    std::cout << "按回车键继续...";
+                    std::cin.get();
                     break;
             }
         }
@@ -331,6 +354,8 @@ public:
         while (connected) {
             // 检查是否被踢下线
             if (checkKicked()) {
+                std::cout << "按回车键返回登录界面...";
+                std::cin.get();
                 return false;  // 返回登录界面
             }
 
@@ -341,6 +366,8 @@ public:
                 std::cin.clear();
                 std::cin.ignore(1000, '\n');
                 std::cout << "输入无效，请输入数字!" << std::endl;
+                std::cout << "按回车键继续...";
+                std::cin.get();
                 continue;
             }
             std::cin.ignore();
@@ -353,6 +380,8 @@ public:
                             std::cout << "\n=== 系统通知 ===" << std::endl;
                             std::cout << "您的账号在其他地方登录，连接已断开!" << std::endl;
                             std::cout << "即将返回登录界面..." << std::endl;
+                            std::cout << "按回车键继续...";
+                            std::cin.get();
                             return false;  // 返回登录界面
                         }
                         if (response.find("SUCCESS") != std::string::npos) {
@@ -361,6 +390,8 @@ public:
                             std::cout << "服务器响应: " << response << std::endl;
                         }
                     }
+                    std::cout << "按回车键继续...";
+                    std::cin.get();
                     break;
 
                 case 2: // 修改用户字符串
@@ -372,10 +403,14 @@ public:
                             std::cout << "\n=== 系统通知 ===" << std::endl;
                             std::cout << "您的账号在其他地方登录，连接已断开!" << std::endl;
                             std::cout << "即将返回登录界面..." << std::endl;
+                            std::cout << "按回车键继续...";
+                            std::cin.get();
                             return false;  // 返回登录界面
                         }
                         std::cout << "服务器响应: " << response << std::endl;
                     }
+                    std::cout << "按回车键继续...";
+                    std::cin.get();
                     break;
 
                 case 3: // 修改密码 - 双重验证确保安全
@@ -388,6 +423,8 @@ public:
                     
                     if (newPassword != confirmPassword) {
                         std::cout << "两次输入的密码不一致!" << std::endl;
+                        std::cout << "按回车键继续...";
+                        std::cin.get();
                         break;
                     }
                     
@@ -397,10 +434,14 @@ public:
                             std::cout << "\n=== 系统通知 ===" << std::endl;
                             std::cout << "您的账号在其他地方登录，连接已断开!" << std::endl;
                             std::cout << "即将返回登录界面..." << std::endl;
+                            std::cout << "按回车键继续...";
+                            std::cin.get();
                             return false;  // 返回登录界面
                         }
                         std::cout << "服务器响应: " << response << std::endl;
                     }
+                    std::cout << "按回车键继续...";
+                    std::cin.get();
                     break;
 
                 case 4: // 注销账户 - 需要用户确认的危险操作
@@ -416,14 +457,20 @@ public:
                             std::cout << "\n=== 系统通知 ===" << std::endl;
                             std::cout << "您的账号在其他地方登录，连接已断开!" << std::endl;
                             std::cout << "即将返回登录界面..." << std::endl;
+                            std::cout << "按回车键继续...";
+                            std::cin.get();
                             return false;  // 返回登录界面
                         }
                         std::cout << "服务器响应: " << response << std::endl;
                         if (response.find("SUCCESS") != std::string::npos) {
                             std::cout << "账户已注销，即将返回登录界面..." << std::endl;
+                            std::cout << "按回车键继续...";
+                            std::cin.get();
                             return false;  // 返回登录界面
                         }
                     }
+                    std::cout << "按回车键继续...";
+                    std::cin.get();
                     break;
 
                 case 5: // 用户登出
@@ -433,10 +480,14 @@ public:
                             std::cout << "\n=== 系统通知 ===" << std::endl;
                             std::cout << "您的账号在其他地方登录，连接已断开!" << std::endl;
                             std::cout << "即将返回登录界面..." << std::endl;
+                            std::cout << "按回车键继续...";
+                            std::cin.get();
                             return false;  // 返回登录界面
                         }
                         std::cout << "服务器响应: " << response << std::endl;
                         std::cout << "已登出，返回登录界面..." << std::endl;
+                        std::cout << "按回车键继续...";
+                        std::cin.get();
                         return false;  // 返回登录界面
                     }
                     break;
@@ -453,11 +504,15 @@ public:
                     
                 default:
                     std::cout << "无效选择!" << std::endl;
+                    std::cout << "按回车键继续...";
+                    std::cin.get();
                     break;
             }
             
             // 操作完成后再次检查是否被踢下线
             if (checkKicked()) {
+                std::cout << "按回车键返回登录界面...";
+                std::cin.get();
                 return false;  // 返回登录界面
             }
         }
@@ -499,6 +554,7 @@ int main() {
     _setmode(_fileno(stdin), _O_TEXT);
 #endif
 
+    clearScreen();
     std::cout << "=== TCP 用户系统客户端 ===" << std::endl;
     
     // 服务器连接配置

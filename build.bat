@@ -16,15 +16,6 @@ if not exist bin (
     echo 创建 bin 目录...
 )
 
-if not exist log (
-    mkdir log
-    echo 创建 log 目录...
-)
-
-if not exist users (
-    mkdir users
-    echo 创建 users 目录...
-)
 
 REM 检查g++是否可用
 where g++ >nul 2>&1
