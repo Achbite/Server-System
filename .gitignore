@@ -1,3 +1,2 @@
-tcp_client.exe
-tcp_server.exe
-users.txt
+.vscode/
+bin/
