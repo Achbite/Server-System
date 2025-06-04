@@ -18,7 +18,7 @@ TARGET_SERVER = $(BINDIR)/tcp_server.exe
 TARGET_CLIENT = $(BINDIR)/tcp_client.exe
 
 # 源文件
-SRCDIR = Private
+SRCDIR = Source/Private
 SERVER_SOURCES = main.cpp $(SRCDIR)/TCP_System.cpp
 CLIENT_SOURCES = $(SRCDIR)/Client.cpp $(SRCDIR)/TCP_System.cpp
 
@@ -36,7 +36,8 @@ all: $(BINDIR) $(TARGET_SERVER) $(TARGET_CLIENT)
 	@echo 运行服务器: $(TARGET_SERVER)
 	@echo 运行客户端: $(TARGET_CLIENT)
 	@echo 清理中间文件...
-	-del /Q *.o $(SRCDIR)\*.o 2>nul
+	-del /Q *.o 2>nul
+	-del /Q Source\Private\*.o 2>nul
 
 # 创建输出目录
 $(BINDIR):
@@ -46,7 +47,8 @@ $(BINDIR):
 server: $(BINDIR) $(TARGET_SERVER)
 	@chcp 65001 >nul 2>&1
 	@echo 清理中间文件...
-	-del /Q *.o $(SRCDIR)\*.o 2>nul
+	-del /Q *.o 2>nul
+	-del /Q Source\Private\*.o 2>nul
 
 $(TARGET_SERVER): $(SERVER_OBJECTS)
 	@chcp 65001 >nul 2>&1
@@ -58,7 +60,8 @@ $(TARGET_SERVER): $(SERVER_OBJECTS)
 client: $(BINDIR) $(TARGET_CLIENT)
 	@chcp 65001 >nul 2>&1
 	@echo 清理中间文件...
-	-del /Q *.o $(SRCDIR)\*.o 2>nul
+	-del /Q *.o 2>nul
+	-del /Q Source\Private\*.o 2>nul
 
 $(TARGET_CLIENT): $(CLIENT_OBJECTS)
 	@chcp 65001 >nul 2>&1
@@ -76,7 +79,8 @@ $(TARGET_CLIENT): $(CLIENT_OBJECTS)
 clean:
 	@chcp 65001 >nul 2>&1
 	@echo 清理生成文件...
-	-del /Q *.o $(SRCDIR)\*.o 2>nul
+	-del /Q *.o 2>nul
+	-del /Q Source\Private\*.o 2>nul
 	-del /Q $(BINDIR)\*.exe 2>nul
 	-rmdir /Q /S $(BINDIR) 2>nul
 	@echo 清理完成!
@@ -92,5 +96,3 @@ help:
 	@echo   mingw32-make client    - 编译客户端
 	@echo   mingw32-make clean     - 清理生成文件
 	@echo   mingw32-make help      - 显示此帮助信息
-	@echo.
-	@echo 输出文件位置: $(BINDIR)/

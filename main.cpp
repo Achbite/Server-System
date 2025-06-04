@@ -15,14 +15,43 @@
  * 5. 保持运行直到手动停止
  */
 
-#include "Public/TCP_System.h"
+#include "Source/Public/TCP_System.h"
 #include <iostream>
 #include <cstdlib>
+#include <csignal>
 
 #ifdef _WIN32
 #include <windows.h>
 #include <io.h>
 #include <fcntl.h>
+#else
+#include <signal.h>
+#endif
+
+// 全局服务器指针，用于信号处理
+TCPUserSystemServer* g_server = 0;
+
+// 信号处理函数 - 关闭服务器
+#ifdef _WIN32
+BOOL WINAPI consoleHandler(DWORD signal) {
+    if (signal == CTRL_C_EVENT || signal == CTRL_CLOSE_EVENT) {
+        std::cout << "\n收到关闭信号，正在关闭服务器..." << std::endl;
+        if (g_server) {
+            g_server->stopServer();
+        }
+        return TRUE;
+    }
+    return FALSE;
+}
+#else
+void signalHandler(int signal) {
+    if (signal == SIGINT || signal == SIGTERM) {
+        std::cout << "\n收到关闭信号，正在关闭服务器..." << std::endl;
+        if (g_server) {
+            g_server->stopServer();
+        }
+    }
+}
 #endif
 
 int main() {
@@ -38,6 +67,13 @@ int main() {
     // 恢复到普通文本模式以兼容std::cout
     _setmode(_fileno(stdout), _O_TEXT);
     _setmode(_fileno(stdin), _O_TEXT);
+    
+    // 设置Windows控制台信号处理
+    SetConsoleCtrlHandler(consoleHandler, TRUE);
+#else
+    // 设置Linux信号处理
+    signal(SIGINT, signalHandler);
+    signal(SIGTERM, signalHandler);
 #endif
 
     std::cout << "=== TCP 用户系统服务器 ===" << std::endl;
@@ -55,8 +91,9 @@ int main() {
         }
     }
 
-    // 创建服务器实例 - 自动加载历史用户数据
-    TCPUserSystemServer server(port);
+    // 创建服务器实例 - 用户数据存放在users目录
+    TCPUserSystemServer server(port, "users/users.txt");
+    g_server = &server;  // 设置全局指针用于信号处理
     
     // 启动服务器 - 进入监听状态
     if (server.startServer()) {
@@ -67,5 +104,6 @@ int main() {
         return 1;
     }
     
+    g_server = 0;  // 清除全局指针
     return 0;
 }

@@ -51,18 +51,19 @@ Server-System/
 ├── main.cpp                 # 服务器主程序入口
 ├── Makefile                 # Make编译配置
 ├── build.bat                # Windows批处理编译脚本
-├── users.txt                # 用户数据文件(自动生成)
 └── README.md                # 项目说明文档
 ```
 
 ## 🔧 编译环境要求
 
 ### Windows环境
+
 - **编译器**: MinGW64 (g++ 7.0+) 或 Visual Studio 2017+
 - **系统**: Windows 7/8/10/11
 - **网络库**: WinSock2 (系统自带)
 
 ### Linux环境
+
 - **编译器**: GCC 7.0+ (支持C++11)
 - **系统**: Ubuntu 16.04+ / CentOS 7+ / 其他主流发行版
 - **网络库**: 系统自带socket库
@@ -107,6 +108,7 @@ tcp_server.exe
 ```
 
 服务器启动后会显示：
+
 ```
 === TCP 用户系统服务器 ===
 请输入服务器端口 (默认 8080): 
@@ -122,6 +124,7 @@ tcp_client.exe
 ```
 
 客户端启动后会显示：
+
 ```
 === TCP 用户系统客户端 ===
 请输入服务器地址 (默认 127.0.0.1): 
@@ -131,6 +134,7 @@ tcp_client.exe
 ## 🎮 功能使用指南
 
 ### 登录前界面
+
 ```
 === TCP 用户系统 ===
 1. 用户登录
@@ -140,6 +144,7 @@ tcp_client.exe
 ```
 
 ### 登录后界面
+
 ```
 === 用户操作界面 ===
 1. 查看用户字符串
@@ -175,30 +180,31 @@ tcp_client.exe
 
 ### 主要命令
 
-| 命令 | 参数 | 说明 |
-|------|------|------|
-| REGISTER | userId, password | 用户注册 |
-| LOGIN | userId, password | 用户登录 |
-| FORCE_LOGIN | userId, password, choice | 强制登录 |
-| LOGOUT | 无 | 用户登出 |
-| DELETE | userId, password | 注销账户 |
-| CHANGE_PASSWORD | oldPwd, newPwd | 修改密码 |
-| SET_STRING | string | 设置用户字符串 |
-| GET_STRING | 无 | 获取用户字符串 |
-| QUIT | 无 | 客户端退出 |
+| 命令            | 参数                     | 说明           |
+| --------------- | ------------------------ | -------------- |
+| REGISTER        | userId, password         | 用户注册       |
+| LOGIN           | userId, password         | 用户登录       |
+| FORCE_LOGIN     | userId, password, choice | 强制登录       |
+| LOGOUT          | 无                       | 用户登出       |
+| DELETE          | userId, password         | 注销账户       |
+| CHANGE_PASSWORD | oldPwd, newPwd           | 修改密码       |
+| SET_STRING      | string                   | 设置用户字符串 |
+| GET_STRING      | 无                       | 获取用户字符串 |
+| QUIT            | 无                       | 客户端退出     |
 
 ### 响应格式
 
-| 响应类型 | 格式 | 说明 |
-|----------|------|------|
-| 成功 | SUCCESS\|message | 操作成功 |
-| 错误 | ERROR\|message | 操作失败 |
-| 冲突 | CONFLICT\|message | 登录冲突 |
-| 踢下线 | KICKED\|message | 被其他会话挤占 |
+| 响应类型 | 格式              | 说明           |
+| -------- | ----------------- | -------------- |
+| 成功     | SUCCESS\|message  | 操作成功       |
+| 错误     | ERROR\|message    | 操作失败       |
+| 冲突     | CONFLICT\|message | 登录冲突       |
+| 踢下线   | KICKED\|message   | 被其他会话挤占 |
 
 ## 💾 数据存储
 
-用户数据以CSV格式存储在`users.txt`文件中：
+用户数据以CSV格式存储在 `users.txt`文件中：
+
 ```
 userId,password,userString
 admin,123456,Hello World
@@ -206,6 +212,7 @@ user1,password,My Data
 ```
 
 系统会自动：
+
 - 启动时加载历史数据
 - 操作时实时保存数据
 - 关闭时确保数据完整性
@@ -213,19 +220,23 @@ user1,password,My Data
 ## 🧵 技术实现亮点
 
 ### 自定义同步原语
+
 为保证兼容性，项目实现了自定义的线程同步机制：
+
 - `SimpleAtomicBool` - 原子布尔操作
 - `SimpleMutex` - 跨平台互斥锁
 - `SimpleLockGuard` - RAII锁管理
 - `SimpleSharedPtr` - 智能指针实现
 
 ### 多线程架构
+
 - 主线程负责接受连接
 - 每个客户端连接分配独立处理线程
 - 线程安全的用户数据管理
 - 优雅的服务器关闭处理
 
 ### 网络编程
+
 - 跨平台Socket封装
 - 可靠的消息发送接收
 - 超时处理和错误恢复
@@ -236,25 +247,27 @@ user1,password,My Data
 ### 常见问题
 
 1. **编译错误：找不到winsock2.h**
+
    - 确保使用MinGW64或Visual Studio
    - 检查编译器环境配置
-
 2. **连接失败：无法连接到服务器**
+
    - 检查服务器是否已启动
    - 确认端口号是否正确
    - 检查防火墙设置
-
 3. **编码显示乱码**
+
    - Windows系统已自动设置UTF-8编码
    - 确保控制台支持UTF-8显示
-
 4. **数据文件无法访问**
+
    - 检查程序运行目录的写权限
    - 确保users.txt文件未被其他程序占用
 
 ### 调试模式
 
 服务器提供详细的操作日志：
+
 ```
 [会话ID前8位] 操作类型: 参数信息
 [12345678] 执行操作: LOGIN 参数: admin (密码已隐藏)
@@ -280,6 +293,6 @@ user1,password,My Data
 
 ---
 
-**开发环境**: C++11, TCP Socket Programming, Multi-threading  
-**测试环境**: Windows 10/11, MinGW64 g++ 11.2.0  
+**开发环境**: C++11, TCP Socket Programming, Multi-threading
+**测试环境**: Windows 10/11, MinGW64 g++ 11.2.0
 **最后更新**: 2024年

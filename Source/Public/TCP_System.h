@@ -176,6 +176,29 @@ public:
 // 前置声明
 class ClientSession;
 
+// 日志管理类 - 记录服务器操作和异常情况
+class ServerLogger {
+private:
+    std::string logFile;         // 日志文件路径
+    SimpleMutex logMutex;        // 日志写入保护
+    bool enableConsoleOutput;    // 是否同时输出到控制台
+
+public:
+    ServerLogger(const std::string& filename = "server.log", bool consoleOutput = true);
+    ~ServerLogger();
+    
+    // 日志记录方法
+    void logInfo(const std::string& message);
+    void logWarning(const std::string& message);
+    void logError(const std::string& message);
+    void logUserOperation(const std::string& sessionId, const std::string& userId, const std::string& operation, const std::string& result);
+    void logServerEvent(const std::string& event);
+    
+private:
+    void writeLog(const std::string& level, const std::string& message);
+    std::string getCurrentTime();
+};
+
 // 简单智能指针 - 替代std::shared_ptr，实现引用计数管理
 template<typename T>
 class SimpleSharedPtr {
@@ -296,6 +319,9 @@ private:
     SimpleAtomicBool running;     // 服务器运行状态标志
     int port;                     // 监听端口
     std::string dataFile;         // 用户数据文件路径
+    
+    // 日志管理
+    ServerLogger* logger;         // 日志记录器
     
     // 数据管理 - 使用map确保有序性和查找效率
     std::map<std::string, User> users;                              // 用户数据存储

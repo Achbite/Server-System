@@ -20,6 +20,83 @@
 #include "../Public/TCP_System.h"
 #include <ctime>
 #include <cstdlib>
+#include <sys/stat.h> // mkdir
+#include <sstream>   // stringstream
+
+// 创建目录的辅助函数
+bool createDirectory(const std::string& path) {
+#ifdef _WIN32
+    return CreateDirectoryA(path.c_str(), NULL) || GetLastError() == ERROR_ALREADY_EXISTS;
+#else
+    return mkdir(path.c_str(), 0755) == 0 || errno == EEXIST;
+#endif
+}
+
+// 日志管理类实现
+ServerLogger::ServerLogger(const std::string& filename, bool consoleOutput) 
+    : logFile(filename), enableConsoleOutput(consoleOutput) {
+    // 确保log目录存在
+    createDirectory("log");
+    logServerEvent("服务器日志系统初始化");
+}
+
+ServerLogger::~ServerLogger() {
+    logServerEvent("服务器日志系统关闭");
+}
+
+// 获取当前时间字符串
+std::string ServerLogger::getCurrentTime() {
+    time_t now = time(0);
+    char buffer[80];
+    struct tm* timeinfo = localtime(&now);
+    strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", timeinfo);
+    return std::string(buffer);
+}
+
+// 写入日志的核心方法
+void ServerLogger::writeLog(const std::string& level, const std::string& message) {
+    SimpleLockGuard lock(logMutex);
+    
+    std::string logEntry = "[" + getCurrentTime() + "] [" + level + "] " + message;
+    
+    // 输出到控制台
+    if (enableConsoleOutput) {
+        std::cout << logEntry << std::endl;
+    }
+    
+    // 写入日志文件
+    std::ofstream file(logFile.c_str(), std::ios::app);
+    if (file.is_open()) {
+        file << logEntry << std::endl;
+        file.close();
+    }
+}
+
+// 信息级别日志
+void ServerLogger::logInfo(const std::string& message) {
+    writeLog("INFO", message);
+}
+
+// 警告级别日志
+void ServerLogger::logWarning(const std::string& message) {
+    writeLog("WARN", message);
+}
+
+// 错误级别日志
+void ServerLogger::logError(const std::string& message) {
+    writeLog("ERROR", message);
+}
+
+// 用户操作日志
+void ServerLogger::logUserOperation(const std::string& sessionId, const std::string& userId, const std::string& operation, const std::string& result) {
+    std::string message = "会话[" + sessionId.substr(0, 8) + "] 用户[" + userId + "] 操作[" + operation + "] 结果[" + result + "]";
+    writeLog("USER", message);
+}
+
+// 服务器事件日志
+void ServerLogger::logServerEvent(const std::string& event) {
+    writeLog("SERVER", event);
+}
 
 // 协议消息解析实现 - 解析"COMMAND|param1|param2"格式的消息
 ProtocolMessage ProtocolMessage::parse(const std::string& message) {
@@ -48,13 +125,36 @@ std::string ProtocolMessage::serialize() const {
 // 服务器构造函数 - 初始化服务器状态并加载历史数据
 TCPUserSystemServer::TCPUserSystemServer(int serverPort, const std::string& filename) 
     : serverSocket(INVALID_SOCKET), running(false), port(serverPort), dataFile(filename) {
+    // 确保log和users目录存在
+    createDirectory("log");
+    createDirectory("users");
+    
+    // 初始化日志系统，日志文件存放在log目录
+    logger = new ServerLogger("log/server.log", true);
+    
+    std::stringstream ss;
+    ss << serverPort;
+    logger->logServerEvent("TCP用户系统服务器初始化，端口: " + ss.str());
+    
     loadFromFile();  // 启动时加载用户数据
+    
+    std::stringstream userCount;
+    userCount << users.size();
+    logger->logInfo("用户数据加载完成，当前用户数量: " + userCount.str());
 }
 
 // 服务器析构函数 - 确保资源正确释放
 TCPUserSystemServer::~TCPUserSystemServer() {
+    if (logger) {
+        logger->logServerEvent("服务器正在关闭...");
+    }
     stopServer();       // 停止服务器
     saveToFile();       // 保存数据
+    if (logger) {
+        logger->logInfo("用户数据已保存");
+        delete logger;
+        logger = 0;
+    }
     cleanupNetwork();   // 清理网络资源
 }
 
@@ -80,20 +180,21 @@ void TCPUserSystemServer::cleanupNetwork() {
 // 服务器启动 - 创建监听套接字并进入主循环
 bool TCPUserSystemServer::startServer() {
     if (!initializeNetwork()) {
+        logger->logError("网络初始化失败");
         return false;
     }
 
     // 创建TCP套接字
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == INVALID_SOCKET) {
-        std::cerr << "创建服务器套接字失败" << std::endl;
+        logger->logError("创建服务器套接字失败");
         return false;
     }
 
     // 设置套接字选项 - 允许地址重用
     int opt = 1;
     if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, (char*)&opt, sizeof(opt)) < 0) {
-        std::cerr << "设置套接字选项失败" << std::endl;
+        logger->logError("设置套接字选项失败");
         closesocket(serverSocket);
         return false;
     }
@@ -105,21 +206,24 @@ bool TCPUserSystemServer::startServer() {
     serverAddr.sin_port = htons(static_cast<unsigned short>(port));
 
     if (bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        std::cerr << "绑定地址失败，端口: " << port << std::endl;
+        std::stringstream ss;
+        ss << port;
+        logger->logError("绑定地址失败，端口: " + ss.str());
         closesocket(serverSocket);
         return false;
     }
 
     // 开始监听客户端连接
     if (listen(serverSocket, 10) == SOCKET_ERROR) {
-        std::cerr << "监听失败" << std::endl;
+        logger->logError("监听失败");
         closesocket(serverSocket);
         return false;
     }
 
     running.store(true);
-    std::cout << "TCP 用户系统服务器启动成功，端口: " << port << std::endl;
-    std::cout << "等待客户端连接..." << std::endl;
+    std::stringstream ss;
+    ss << port;
+    logger->logServerEvent("TCP用户系统服务器启动成功，端口: " + ss.str());
 
     // 主循环 - 接受客户端连接并创建处理线程
     while (running.load()) {
@@ -129,13 +233,14 @@ bool TCPUserSystemServer::startServer() {
         SOCKET clientSocket = accept(serverSocket, (sockaddr*)&clientAddr, &clientAddrLen);
         if (clientSocket == INVALID_SOCKET) {
             if (running.load()) {
-                std::cerr << "接受客户端连接失败" << std::endl;
+                logger->logWarning("接受客户端连接失败");
             }
             continue;
         }
 
-        std::cout << "新客户端连接: " << inet_ntoa(clientAddr.sin_addr) 
-                  << ":" << ntohs(clientAddr.sin_port) << std::endl;
+        std::stringstream clientInfo;
+        clientInfo << inet_ntoa(clientAddr.sin_addr) << ":" << ntohs(clientAddr.sin_port);
+        logger->logInfo("新客户端连接: " + clientInfo.str());
 
         // 为客户端创建独立处理线程
         ThreadParam* param = new ThreadParam;
@@ -272,6 +377,8 @@ void TCPUserSystemServer::handleClient(SOCKET clientSocket) {
     std::string sessionId = generateSessionId();
     SimpleSharedPtr<ClientSession> session(new ClientSession(clientSocket, sessionId));
     
+    logger->logInfo("创建新会话: " + sessionId);
+    
     // 注册会话 - 线程安全操作
     {
         SimpleLockGuard lock(sessionsMutex);
@@ -294,7 +401,7 @@ void TCPUserSystemServer::handleClient(SOCKET clientSocket) {
     // 会话结束时的清理工作
     std::string loggedInUser = session->getLoggedInUser();
     if (!loggedInUser.empty()) {
-        std::cout << "[服务器] 会话结束，用户 " << loggedInUser << " 自动登出" << std::endl;
+        logger->logUserOperation(sessionId, loggedInUser, "SESSION_END", "自动登出");
     }
 
     // 清理会话
@@ -304,99 +411,100 @@ void TCPUserSystemServer::handleClient(SOCKET clientSocket) {
     }
 
     closesocket(clientSocket);
-    std::cout << "客户端会话结束: " << sessionId << std::endl;
+    logger->logInfo("客户端会话结束: " + sessionId);
 }
 
 // 客户端消息处理 - 解析命令并调用相应业务逻辑
 void TCPUserSystemServer::processClientMessage(SimpleSharedPtr<ClientSession> session, const std::string& message) {
     ProtocolMessage msg = ProtocolMessage::parse(message);
     std::string response;
-    
-    // 操作日志记录 - 记录客户端操作用于监控
-    std::cout << "[" << session->getSessionId().substr(0, 8) << "] 执行操作: " << msg.command;
-    if (!msg.parameters.empty()) {
-        std::cout << " 参数: " << msg.parameters[0];
-        if (msg.command == "REGISTER" || msg.command == "LOGIN" || msg.command == "DELETE" || msg.command == "FORCE_LOGIN") {
-            std::cout << " (密码已隐藏)";  // 保护敏感信息
-        }
-    }
-    std::cout << std::endl;
+    std::string sessionId = session->getSessionId();
 
     // 命令分发处理
     if (msg.command == "REGISTER") {
         if (msg.parameters.size() >= 2) {
             response = registerUser(msg.parameters[0], msg.parameters[1]);
-            std::cout << "[" << session->getSessionId().substr(0, 8) << "] 注册结果: " 
-                      << (response.find("SUCCESS") != std::string::npos ? "成功" : "失败") << std::endl;
+            std::string result = (response.find("SUCCESS") != std::string::npos ? "成功" : "失败");
+            logger->logUserOperation(sessionId, msg.parameters[0], "REGISTER", result);
         } else {
             response = "ERROR|参数不足";
+            logger->logWarning("会话[" + sessionId.substr(0, 8) + "] 注册操作参数不足");
         }
     }
     else if (msg.command == "LOGIN") {
         if (msg.parameters.size() >= 2) {
             response = loginUser(session, msg.parameters[0], msg.parameters[1]);
-            std::cout << "[" << session->getSessionId().substr(0, 8) << "] 登录结果: " 
-                      << (response.find("SUCCESS") != std::string::npos ? "成功" : 
-                         (response.find("CONFLICT") != std::string::npos ? "冲突" : "失败")) << std::endl;
+            std::string result = (response.find("SUCCESS") != std::string::npos ? "成功" : 
+                               (response.find("CONFLICT") != std::string::npos ? "冲突" : "失败"));
+            logger->logUserOperation(sessionId, msg.parameters[0], "LOGIN", result);
         } else {
             response = "ERROR|参数不足";
+            logger->logWarning("会话[" + sessionId.substr(0, 8) + "] 登录操作参数不足");
         }
     }
     else if (msg.command == "FORCE_LOGIN") {
-        // 处理强制登录（挤占下线）
         if (msg.parameters.size() >= 3) {
             bool forceLogin = (msg.parameters[2] == "Y" || msg.parameters[2] == "y");
             response = handleLoginConflict(session, msg.parameters[0], msg.parameters[1], forceLogin);
-            std::cout << "[" << session->getSessionId().substr(0, 8) << "] 强制登录结果: " 
-                      << (response.find("SUCCESS") != std::string::npos ? "成功" : "失败") << std::endl;
+            std::string result = (response.find("SUCCESS") != std::string::npos ? "成功" : "失败");
+            logger->logUserOperation(sessionId, msg.parameters[0], "FORCE_LOGIN", result + (forceLogin ? "(强制)" : "(取消)"));
         } else {
             response = "ERROR|参数不足";
+            logger->logWarning("会话[" + sessionId.substr(0, 8) + "] 强制登录操作参数不足");
         }
     }
     else if (msg.command == "LOGOUT") {
+        std::string userId = session->getLoggedInUser();
         response = logoutUser(session);
-        std::cout << "[" << session->getSessionId().substr(0, 8) << "] 用户登出" << std::endl;
+        logger->logUserOperation(sessionId, userId, "LOGOUT", "用户登出");
     }
     else if (msg.command == "DELETE") {
         if (msg.parameters.size() >= 2) {
             response = deleteUser(session, msg.parameters[0], msg.parameters[1]);
-            std::cout << "[" << session->getSessionId().substr(0, 8) << "] 注销账户结果: " 
-                      << (response.find("SUCCESS") != std::string::npos ? "成功" : "失败") << std::endl;
+            std::string result = (response.find("SUCCESS") != std::string::npos ? "成功" : "失败");
+            logger->logUserOperation(sessionId, msg.parameters[0], "DELETE", result);
         } else {
             response = "ERROR|参数不足";
+            logger->logWarning("会话[" + sessionId.substr(0, 8) + "] 注销账户操作参数不足");
         }
     }
     else if (msg.command == "CHANGE_PASSWORD") {
         if (msg.parameters.size() >= 2) {
+            std::string userId = session->getLoggedInUser();
             response = changePassword(session, msg.parameters[0], msg.parameters[1]);
-            std::cout << "[" << session->getSessionId().substr(0, 8) << "] 修改密码结果: " 
-                      << (response.find("SUCCESS") != std::string::npos ? "成功" : "失败") << std::endl;
+            std::string result = (response.find("SUCCESS") != std::string::npos ? "成功" : "失败");
+            logger->logUserOperation(sessionId, userId, "CHANGE_PASSWORD", result);
         } else {
             response = "ERROR|参数不足";
+            logger->logWarning("会话[" + sessionId.substr(0, 8) + "] 修改密码操作参数不足");
         }
     }
     else if (msg.command == "SET_STRING") {
         if (msg.parameters.size() >= 1) {
+            std::string userId = session->getLoggedInUser();
             response = setUserString(session, msg.parameters[0]);
-            std::cout << "[" << session->getSessionId().substr(0, 8) << "] 设置用户字符串" << std::endl;
+            logger->logUserOperation(sessionId, userId, "SET_STRING", "设置用户字符串");
         } else {
             response = "ERROR|参数不足";
+            logger->logWarning("会话[" + sessionId.substr(0, 8) + "] 设置字符串操作参数不足");
         }
     }
     else if (msg.command == "GET_STRING") {
+        std::string userId = session->getLoggedInUser();
         response = getUserString(session);
-        std::cout << "[" << session->getSessionId().substr(0, 8) << "] 查看用户字符串" << std::endl;
+        logger->logUserOperation(sessionId, userId, "GET_STRING", "查看用户字符串");
     }
     else if (msg.command == "QUIT") {
+        std::string userId = session->getLoggedInUser();
         response = "GOODBYE|感谢使用";
-        std::cout << "[" << session->getSessionId().substr(0, 8) << "] 客户端退出" << std::endl;
+        logger->logUserOperation(sessionId, userId.empty() ? "未登录" : userId, "QUIT", "客户端退出");
         sendMessage(session->getSocket(), response);
         session->setInactive();
         return;
     }
     else {
         response = "ERROR|未知命令: " + msg.command;
-        std::cout << "[" << session->getSessionId().substr(0, 8) << "] 未知命令: " << msg.command << std::endl;
+        logger->logWarning("会话[" + sessionId.substr(0, 8) + "] 未知命令: " + msg.command);
     }
 
     sendMessage(session->getSocket(), response);
@@ -622,6 +730,10 @@ void TCPUserSystemServer::stopServer() {
     if (running.load()) {
         running.store(false);
         
+        if (logger) {
+            logger->logServerEvent("服务器正在停止...");
+        }
+        
         // 关闭监听套接字
         if (serverSocket != INVALID_SOCKET) {
             closesocket(serverSocket);
@@ -643,6 +755,8 @@ void TCPUserSystemServer::stopServer() {
 #endif
         clientThreads.clear();
         
-        std::cout << "服务器已停止" << std::endl;
+        if (logger) {
+            logger->logServerEvent("服务器已停止");
+        }
     }
 }
