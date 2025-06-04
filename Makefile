@@ -27,7 +27,7 @@ SERVER_OBJECTS = $(SERVER_SOURCES:.cpp=.o)
 CLIENT_OBJECTS = $(CLIENT_SOURCES:.cpp=.o)
 
 # 默认目标
-.PHONY: all clean server client
+.PHONY: all clean server client help
 
 all: $(BINDIR) $(TARGET_SERVER) $(TARGET_CLIENT)
 	@chcp 65001 >nul 2>&1
@@ -80,3 +80,17 @@ clean:
 	-del /Q $(BINDIR)\*.exe 2>nul
 	-rmdir /Q /S $(BINDIR) 2>nul
 	@echo 清理完成!
+
+# 帮助信息
+help:
+	@chcp 65001 >nul 2>&1
+	@echo TCP用户系统 - 构建帮助
+	@echo.
+	@echo 可用命令:
+	@echo   mingw32-make           - 编译所有目标
+	@echo   mingw32-make server    - 编译服务器端
+	@echo   mingw32-make client    - 编译客户端
+	@echo   mingw32-make clean     - 清理生成文件
+	@echo   mingw32-make help      - 显示此帮助信息
+	@echo.
+	@echo 输出文件位置: $(BINDIR)/
