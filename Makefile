@@ -42,10 +42,10 @@ ifeq ($(OS),Windows_NT)
 	IS_WINDOWS = true
 endif
 
-# Windows配置
+# Windows配置 (修复编码问题)
 ifdef IS_WINDOWS
 	CXX = g++
-	MKDIR = if not exist
+	MKDIR = mkdir
 	RM = del /Q /S
 	RMDIR = rmdir /Q /S
 	ECHO = echo
@@ -56,6 +56,7 @@ ifdef IS_WINDOWS
 else
 	# Unix/Linux链接库
 	LDFLAGS = -lpthread
+	ECHO = echo
 endif
 
 # 基础配置
@@ -77,40 +78,6 @@ CLIENT_OBJECTS = $(CLIENT_SOURCES:.cpp=.o)
 
 # 默认目标
 .PHONY: all clean server client help dev-test clean-temp windows-test
-
-# Windows测试目标
-windows-test: all
-	@$(ECHO) ""
-	@$(ECHO) "Windows环境编译完成!"
-	@$(ECHO) ""
-	@$(ECHO) "可执行文件:"
-	@$(ECHO) "  服务器: $(TARGET_SERVER)"
-	@$(ECHO) "  客户端: $(TARGET_CLIENT)"
-	@$(ECHO) ""
-	@$(ECHO) "启动说明:"
-	@$(ECHO) "  1. 打开第一个命令提示符: cd bin && tcp_server.exe"
-	@$(ECHO) "  2. 打开第二个命令提示符: cd bin && tcp_client.exe"
-	@$(ECHO) ""
-
-# 开发测试 (自动检测平台)
-dev-test: all
-ifdef IS_WINDOWS
-	@$(ECHO) ""
-	@$(ECHO) "Windows开发环境就绪!"
-	@$(ECHO) "启动: cd bin && tcp_server.exe"
-else
-	@$(ECHO) ""
-	@$(ECHO) "$(HOST_OS)开发环境就绪!"
-	@$(ECHO) "启动: cd bin && ./tcp_server"
-endif
-
-# 编译所有目标
-all: $(BINDIR) $(TARGET_SERVER) $(TARGET_CLIENT) clean-temp
-	@$(ECHO) ""
-	@$(ECHO) "编译完成! ($(HOST_OS))"
-	@$(ECHO) "服务器: $(TARGET_SERVER)"
-	@$(ECHO) "客户端: $(TARGET_CLIENT)"
-	@$(ECHO) ""
 
 # 创建输出目录
 $(BINDIR):
@@ -157,6 +124,40 @@ else
 	@$(RM) $(BINDIR) 2>/dev/null || true
 endif
 	@$(ECHO) "清理完成!"
+
+# Windows测试目标
+windows-test: all
+	@$(ECHO) ""
+	@$(ECHO) "Windows环境编译完成!"
+	@$(ECHO) ""
+	@$(ECHO) "可执行文件:"
+	@$(ECHO) "  服务器: $(TARGET_SERVER)"
+	@$(ECHO) "  客户端: $(TARGET_CLIENT)"
+	@$(ECHO) ""
+	@$(ECHO) "启动说明:"
+	@$(ECHO) "  1. 打开第一个命令提示符: cd bin && tcp_server.exe"
+	@$(ECHO) "  2. 打开第二个命令提示符: cd bin && tcp_client.exe"
+	@$(ECHO) ""
+
+# 开发测试 (自动检测平台)
+dev-test: all
+ifdef IS_WINDOWS
+	@$(ECHO) ""
+	@$(ECHO) "Windows开发环境就绪!"
+	@$(ECHO) "启动: cd bin && tcp_server.exe"
+else
+	@$(ECHO) ""
+	@$(ECHO) "$(HOST_OS)开发环境就绪!"
+	@$(ECHO) "启动: cd bin && ./tcp_server"
+endif
+
+# 编译所有目标
+all: $(BINDIR) $(TARGET_SERVER) $(TARGET_CLIENT) clean-temp
+	@$(ECHO) ""
+	@$(ECHO) "编译完成! ($(HOST_OS))"
+	@$(ECHO) "服务器: $(TARGET_SERVER)"
+	@$(ECHO) "客户端: $(TARGET_CLIENT)"
+	@$(ECHO) ""
 
 # 帮助信息
 help:
