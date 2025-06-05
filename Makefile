@@ -1,6 +1,6 @@
 # TCP用户系统 - 跨平台Makefile (增强Windows支持)
 
-# 检测操作系统 (增强Windows检测)
+# 检测操作系统 (简化WSL检测)
 UNAME_S := $(shell uname -s 2>/dev/null || echo "Windows")
 
 # 操作系统配置
@@ -12,6 +12,14 @@ ifeq ($(UNAME_S),Linux)
 	ECHO = echo
 	EXE_EXT = 
 	PATH_SEP = /
+	LDFLAGS = -lpthread
+	
+	# 检测WSL环境（用于显示提示信息）
+	WSL_CHECK := $(shell grep -i microsoft /proc/version 2>/dev/null)
+	ifneq ($(WSL_CHECK),)
+		IS_WSL = true
+		HOST_OS = Linux(WSL)
+	endif
 endif
 
 ifeq ($(UNAME_S),Darwin)
@@ -42,7 +50,7 @@ ifeq ($(OS),Windows_NT)
 	IS_WINDOWS = true
 endif
 
-# Windows配置 (修复编码问题)
+# Windows配置
 ifdef IS_WINDOWS
 	CXX = g++
 	MKDIR = mkdir
@@ -51,10 +59,9 @@ ifdef IS_WINDOWS
 	ECHO = echo
 	EXE_EXT = .exe
 	PATH_SEP = \\
-	# Windows链接库
 	LDFLAGS = -lws2_32 -lpthread
 else
-	# Unix/Linux链接库
+	# Unix/Linux/WSL 共用配置
 	LDFLAGS = -lpthread
 	ECHO = echo
 endif
@@ -159,7 +166,7 @@ all: $(BINDIR) $(TARGET_SERVER) $(TARGET_CLIENT) clean-temp
 	@$(ECHO) "客户端: $(TARGET_CLIENT)"
 	@$(ECHO) ""
 
-# 帮助信息
+# 简化帮助信息
 help:
 	@$(ECHO) ""
 ifdef IS_WINDOWS
@@ -185,6 +192,11 @@ else
 	@$(ECHO) "TCP用户系统 - $(HOST_OS)构建工具"
 	@$(ECHO) ""
 	@$(ECHO) "当前环境: $(HOST_OS)"
+ifdef IS_WSL
+	@$(ECHO) "WSL信息: Ubuntu $(shell grep -oP 'VERSION=\"\K[^\"]+' /etc/os-release 2>/dev/null || echo '未知版本')"
+	@$(ECHO) "Windows路径: /mnt/d/CPP Project/Server-System"
+endif
+	@$(ECHO) "编译器: $(shell gcc --version | head -n1 2>/dev/null || echo '$(CXX)')"
 	@$(ECHO) ""
 	@$(ECHO) "可用命令:"
 	@$(ECHO) "  make dev-test       开发环境测试"
@@ -192,5 +204,78 @@ else
 	@$(ECHO) "  make server         编译服务器"
 	@$(ECHO) "  make client         编译客户端"
 	@$(ECHO) "  make clean          清理生成文件"
+	@$(ECHO) "  make check-env      检查编译环境"
+ifdef IS_WSL
+	@$(ECHO) ""
+	@$(ECHO) "WSL特定功能:"
+	@$(ECHO) "  make wsl-setup      安装开发工具"
 endif
 	@$(ECHO) ""
+	@$(ECHO) "运行方式:"
+	@$(ECHO) "  cd bin && ./tcp_server    # 启动服务器"
+	@$(ECHO) "  cd bin && ./tcp_client    # 启动客户端"
+ifdef IS_WSL
+	@$(ECHO) ""
+	@$(ECHO) "Windows中访问:"
+	@$(ECHO) "  路径: d:\\CPP Project\\Server-System\\bin\\"
+	@$(ECHO) "  注意: 编译的是Linux程序，需在WSL中运行"
+endif
+endif
+	@$(ECHO) ""
+
+# 简化环境检测
+check-env:
+	@$(ECHO) "========== 编译环境信息 =========="
+	@$(ECHO) "操作系统: $(UNAME_S)"
+	@$(ECHO) "环境标识: $(HOST_OS)"
+ifdef IS_WSL
+	@$(ECHO) "WSL环境: 是"
+	@$(ECHO) "发行版: $(shell grep -oP 'NAME=\"\K[^\"]+' /etc/os-release 2>/dev/null)"
+	@$(ECHO) "版本: $(shell grep -oP 'VERSION=\"\K[^\"]+' /etc/os-release 2>/dev/null)"
+	@$(ECHO) "内核: $(shell uname -r)"
+endif
+	@$(ECHO) "编译器: $(CXX)"
+	@$(ECHO) "GCC版本: $(shell gcc --version | head -n1 2>/dev/null || echo '未安装')"
+	@$(ECHO) "Make版本: $(shell make --version | head -n1 2>/dev/null)"
+	@$(ECHO) "目标平台: $(if $(EXE_EXT),Windows可执行文件,Linux可执行文件)"
+	@$(ECHO) "链接库: $(LDFLAGS)"
+	@$(ECHO) "================================="
+
+# 简化WSL设置（复用Linux包管理）
+setup-dev:
+ifeq ($(UNAME_S),Linux)
+	@$(ECHO) "设置Linux/WSL开发环境..."
+	@if command -v apt >/dev/null 2>&1; then \
+		sudo apt update && \
+		sudo apt install -y build-essential g++ make gdb valgrind; \
+	elif command -v yum >/dev/null 2>&1; then \
+		sudo yum groupinstall -y "Development Tools" && \
+		sudo yum install -y gcc-c++ make gdb valgrind; \
+	else \
+		$(ECHO) "请手动安装编译工具: gcc g++ make"; \
+	fi
+ifdef IS_WSL
+	@$(ECHO) "安装中文支持..."
+	@sudo apt install -y language-pack-zh-hans 2>/dev/null || true
+endif
+	@$(ECHO) "✓ 开发环境设置完成!"
+else
+	@$(ECHO) "Windows环境请安装MinGW或使用WSL"
+endif
+
+# 保持兼容性的别名
+wsl-setup: setup-dev
+wsl-test: dev-test
+
+# 从Windows调用Linux编译
+linux-compile:
+ifdef IS_WINDOWS
+	@$(ECHO) "从Windows调用WSL编译Linux版本..."
+	wsl bash -c "cd /mnt/d/CPP\\ Project/Server-System && make dev-test"
+else
+	@$(ECHO) "当前已在Linux环境，直接编译:"
+	$(MAKE) dev-test
+endif
+
+# 兼容性别名
+wsl-compile: linux-compile
