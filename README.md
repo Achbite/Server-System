@@ -49,8 +49,8 @@ Server-System/
 │       ├── TCP_System.cpp    # 服务器核心实现
 │       └── Client.cpp        # 客户端实现
 ├── bin/                      # 编译输出和运行目录
-│   ├── tcp_server            # 服务器可执行文件 (Unix/Linux/macOS)
-│   ├── tcp_client            # 客户端可执行文件 (Unix/Linux/macOS)
+│   ├── tcp_server            # 服务器可执行文件 (Unix/Linux/macOS/win 取决于你的编译方式)
+│   ├── tcp_client            # 客户端可执行文件 (Unix/Linux/macOS/win 取决于你的编译方式)
 │   ├── tcp_server_linux      # Linux专用服务器
 │   ├── tcp_client_linux      # Linux专用客户端
 │   ├── log/                  # 服务器日志目录 (运行时创建)
